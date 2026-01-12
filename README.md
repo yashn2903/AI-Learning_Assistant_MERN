@@ -8,9 +8,6 @@ Users can upload PDF documents and instantly unlock powerful learning tools such
 This project focuses on enhancing productivity, improving comprehension, and making self-study more engaging through intelligent automation and a clean, modern UI.
 
 ![ecommerce-banner](https://github.com/yashn2903/AI-Learning_Assistant_MERN/blob/main/Frontend/src/assets/1.png)
-![ecommerce-banner](https://github.com/yashn2903/AI-Learning_Assistant_MERN/blob/main/Frontend/src/assets/2.png)
-![ecommerce-banner](https://github.com/yashn2903/AI-Learning_Assistant_MERN/blob/main/Frontend/src/assets/3.png)
-![ecommerce-banner](https://github.com/yashn2903/AI-Learning_Assistant_MERN/blob/main/Frontend/src/assets/4.png)
 ![ecommerce-banner](https://github.com/yashn2903/AI-Learning_Assistant_MERN/blob/main/Frontend/src/assets/5.png)
 ![ecommerce-banner](https://github.com/yashn2903/AI-Learning_Assistant_MERN/blob/main/Frontend/src/assets/6.png)
 
