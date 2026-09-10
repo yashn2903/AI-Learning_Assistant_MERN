@@ -1,30 +1,40 @@
 /**
- * pdf-parse loads pdfjs-dist, which expects browser globals (DOMMatrix,
- * ImageData, Path2D). pdfjs tries to polyfill them from @napi-rs/canvas via a
- * guarded require, which Vercel's dependency tracer cannot see - so the package
- * gets pruned from the bundle and the import throws at runtime.
+ * pdf-parse loads pdfjs-dist, which needs two things Vercel's dependency
+ * tracer cannot discover on its own, because pdfjs reaches for both through
+ * guarded/computed imports that static analysis cannot follow:
  *
- * Importing @napi-rs/canvas explicitly here does two things: it makes the
- * tracer include the package, and it lets us install the globals ourselves
- * rather than relying on pdfjs's internal detection.
+ *   1. @napi-rs/canvas, for the browser globals DOMMatrix/ImageData/Path2D
+ *   2. pdf.worker.mjs, which it loads by absolute path as a "fake worker"
+ *
+ * Both get pruned from the deployed bundle unless something references them
+ * explicitly. Importing them here keeps them in the output and lets us install
+ * the globals ourselves instead of relying on pdfjs's internal detection.
  */
-let globalsPromise;
+let readyPromise;
 
-const ensurePdfGlobals = () => {
-  if (!globalsPromise) {
-    globalsPromise = import('@napi-rs/canvas')
-      .then((canvas) => {
+const ensurePdfRuntime = () => {
+  if (!readyPromise) {
+    readyPromise = (async () => {
+      try {
+        const canvas = await import('@napi-rs/canvas');
         for (const name of ['DOMMatrix', 'ImageData', 'Path2D']) {
           if (!globalThis[name] && canvas[name]) {
             globalThis[name] = canvas[name];
           }
         }
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error('Could not load canvas polyfills:', error.message);
-      });
+      }
+
+      try {
+        // Referenced only so the bundler ships pdf.worker.mjs alongside pdf.mjs.
+        await import('pdfjs-dist/legacy/build/pdf.worker.mjs');
+      } catch (error) {
+        console.error('Could not preload the pdfjs worker:', error.message);
+      }
+    })();
   }
-  return globalsPromise;
+  return readyPromise;
 };
 
 /**
@@ -34,7 +44,7 @@ const ensurePdfGlobals = () => {
  */
 export const extractTextFromPDF = async (dataBuffer) => {
   try {
-    await ensurePdfGlobals();
+    await ensurePdfRuntime();
 
     const { PDFParse } = await import('pdf-parse');
 
