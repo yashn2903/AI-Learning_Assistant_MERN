@@ -1,4 +1,7 @@
-export const BASE_URL = "http://localhost:8000";
+// Empty string keeps requests same-origin, which is how the deployed app works:
+// Vercel routes /api/* to the backend service on the same domain.
+// For local dev set VITE_API_URL=http://localhost:8000 in Frontend/.env.local
+export const BASE_URL = import.meta.env.VITE_API_URL ?? "";
 
 export const API_PATHS = {
   AUTH: {

@@ -1,14 +1,12 @@
-import fs from "fs/promises";
 import { PDFParse } from "pdf-parse";
 
 /**
- * Extract text from PDF file
- * @param {string} filePath - Path to PDF file
- * @returns {Promise<{text: string, numPages: number}>}
+ * Extract text from a PDF buffer
+ * @param {Buffer|Uint8Array} dataBuffer - Raw PDF bytes
+ * @returns {Promise<{extractedText: string, numPages: number, info: Object}>}
  */
-export const extractTextFromPDF = async (filePath) => {
+export const extractTextFromPDF = async (dataBuffer) => {
   try {
-    const dataBuffer = await fs.readFile(filePath);
     // pdf-parse expects a Uint8Array, not a Buffer
     const parser = new PDFParse(new Uint8Array(dataBuffer));
     const data = await parser.getText();

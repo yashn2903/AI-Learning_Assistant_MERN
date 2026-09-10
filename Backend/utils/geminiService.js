@@ -3,12 +3,14 @@ import { GoogleGenAI } from "@google/genai";
 
 dotenv.config();
 
+if (!process.env.GEMINI_API_KEY) {
+  // Never process.exit() here - on Vercel that would kill a function instance
+  // that may still be serving other requests. Fail the individual call instead.
+  console.error('ERROR: GEMINI_API_KEY is not set in the environment variables.');
+}
+
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-if (!process.env.GEMINI_API_KEY) {
-  console.error('FATAL ERROR: GEMINI_API_KEY is not set in the environment variables.');
-  process.exit(1);
-}
 
 
 /**

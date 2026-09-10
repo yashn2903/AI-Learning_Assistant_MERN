@@ -3,7 +3,7 @@ import Flashcard from '../models/Flashcard.js';
 import Quiz from '../models/Quiz.js';
 import { extractTextFromPDF } from '../utils/pdfParser.js';
 import { chunkText } from '../utils/textChunker.js';
-import fs from 'fs/promises';
+import { put, del } from '@vercel/blob';
 import mongoose from 'mongoose';
 
 // @desc    Upload PDF document
@@ -22,8 +22,6 @@ export const uploadDocument = async (req, res, next) => {
         const { title } = req.body;
 
         if (!title) {
-            // Delete uploaded file if no title provided
-            await fs.unlink(req.file.path);
             return res.status(400).json({
                 success: false,
                 error: 'Please provide a document title',
@@ -31,43 +29,44 @@ export const uploadDocument = async (req, res, next) => {
             });
         }
 
-        // Construct the URL for the uploaded file
-        const baseUrl = `http://localhost:${process.env.PORT || 8000}`;
-        const fileUrl = `${baseUrl}/uploads/documents/${req.file.filename}`;
+        // Store the PDF in Vercel Blob - the serverless filesystem is ephemeral.
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        const blob = await put(
+            `documents/${uniqueSuffix}-${req.file.originalname}`,
+            req.file.buffer,
+            { access: 'public', contentType: 'application/pdf' }
+        );
 
         // Create document record
         const document = await Document.create({
             userId: req.user._id,
             title,
             fileName: req.file.originalname,
-            filePath: fileUrl, // Store the URL instead of the local path
+            filePath: blob.url,
             fileSize: req.file.size,
             status: 'processing'
         });
 
-        // Process PDF in background (in production, use a queue like Bull)
-        processPDF(document._id, req.file.path).catch(err => {
-            console.error('PDF processing error:', err);
-        });
+        // Extract and chunk the text before responding. A serverless function is
+        // frozen once it responds, so this cannot run as background work.
+        await processPDF(document._id, req.file.buffer);
+
+        const processed = await Document.findById(document._id).select('-extractedText -chunks');
 
         res.status(201).json({
             success: true,
-            data: document,
-            message: 'Document uploaded successfully. Processing in progress...'
+            data: processed,
+            message: 'Document uploaded and processed successfully'
         });
     } catch (error) {
-        // Clean up file on error
-        if (req.file) {
-            await fs.unlink(req.file.path).catch(() => { });
-        }
         next(error);
     }
 };
 
 // Helper function to process PDF
-const processPDF = async (documentId, filePath) => {
+const processPDF = async (documentId, dataBuffer) => {
   try {
-    const { extractedText } = await extractTextFromPDF(filePath);
+    const { extractedText } = await extractTextFromPDF(dataBuffer);
 
     // Create chunks
     const chunks = chunkText(extractedText, 500, 50);
@@ -206,8 +205,13 @@ export const deleteDocument = async (req, res, next) => {
       });
     }
 
-    // Delete file from filesystem
-    await fs.unlink(document.filePath).catch(() => {});
+    // Remove the stored PDF. Legacy records point at a local /uploads path
+    // rather than a Blob URL, so a failure here must not block the delete.
+    if (document.filePath?.includes('.public.blob.vercel-storage.com')) {
+      await del(document.filePath).catch((err) =>
+        console.error(`Blob delete failed for ${document._id}:`, err.message)
+      );
+    }
 
     // Delete document
     await document.deleteOne();

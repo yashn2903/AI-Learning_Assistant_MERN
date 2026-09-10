@@ -40,7 +40,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-// Static folter for uploads
+// Static folder for uploads (local development only - production uses Vercel Blob)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -64,13 +64,19 @@ app.use((req, res) => {
     });
 });
 
-// Start server
-const PORT = process.env.PORT || 8000;
-app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
-});
+// Only bind a port when running as a long-lived process (local dev).
+// On Vercel the exported app is invoked directly by the runtime.
+if (!process.env.VERCEL) {
+    const PORT = process.env.PORT || 8000;
+    app.listen(PORT, () => {
+        console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
+    });
+}
 
 process.on('unhandledRejection', (err) => {
-    console.error(`Error: ${err.message}`);
-    process.exit(1);
+    // Never exit the process on Vercel - it would kill a warm function instance
+    // that is still serving other requests.
+    console.error(`Unhandled rejection: ${err?.message}`);
 });
+
+export default app;
