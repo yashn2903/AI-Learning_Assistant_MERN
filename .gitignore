@@ -3,3 +3,7 @@ node_modules
 *.env
 # uploaded PDFs are stored in Vercel Blob, not the repo
 Backend/uploads/
+
+.vercel
+
+.env*
